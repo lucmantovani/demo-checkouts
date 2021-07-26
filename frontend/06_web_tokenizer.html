@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Tokenizer</title>
+</head>
+
+<body>
+  <div class="tokenizer-container"></div>
+
+  <script src="https://sdk.mercadopago.com/js/v2"></script>
+  <script>
+    // Adicione as credenciais do SDK
+    const mp = new MercadoPago('TEST-2bf9f710-6a6e-47c8-a207-79f5e73b464c', { locale: 'pt-BR' });
+
+    // Inicializa o Web Tokenize Checkout
+    mp.checkout({
+      tokenizer: {
+        totalAmount: 4000,
+        backUrl: 'http://localhost:8080/process_web_tokenizer_payment',
+      },
+      autoOpen: true,
+      render: {
+        container: '.tokenizer-container', // Indica onde o botão de pagamento será exibido
+        label: 'Pagar' // Muda o texto do botão de pagamento (opcional)
+      }
+    });
+  </script>
+</body>
+
+</html>

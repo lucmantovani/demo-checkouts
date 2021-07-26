@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://sdk.mercadopago.com/js/v2"></script>
+  <title>Other methods</title>
+</head>
+
+<body>
+  <div>
+    <form onsubmit="handlePayment(event)" method="post" id="paymentForm">
+      <h3>Forma de Pagamento</h3>
+      <div>
+        <select class="form-control" id="paymentMethod" name="paymentMethodId">
+          <option disabled="true">Selecione uma forma de pagamento</option>
+  
+          <option value="bolbradesco">Boleto</option>
+          <option value="pix">PIX</option>
+        </select>
+      </div>
+      <h3>Detalhe do comprador</h3>
+      <div>
+        <div>
+          <label for="payerFirstName">Nome</label>
+          <input id="payerFirstName" name="payerFirstName" type="text" value="Test"></select>
+        </div>
+        <div>
+          <label for="payerLastName">Sobrenome</label>
+          <input id="payerLastName" name="payerLastName" type="text" value="Test"></select>
+        </div>
+        <div>
+          <label for="payerEmail">E-mail</label>
+          <input id="payerEmail" name="payerEmail" type="text" value="buyer+791690672@test.com"></select>
+        </div>
+        <div>
+          <label for="docType">Tipo de documento</label>
+          <select id="docType" name="docType" data-checkout="docType" type="text"></select>
+        </div>
+        <div>
+          <label for="docNumber">Número do documento</label>
+          <input id="docNumber" name="docNumber" data-checkout="docNumber" type="text" value="15635614680" />
+        </div>
+      </div>
+  
+      <div>
+        <div>
+          <input type="hidden" name="transactionAmount" id="transactionAmount" value="100" />
+          <input type="hidden" name="productDescription" id="productDescription" value="Nome do Produto" />
+          <br>
+          <button type="submit">Pagar</button>
+          <br>
+        </div>
+      </div>
+    </form>
+
+    <div id="information-container"></div>
+  </div>
+  <script>
+    const mp = new MercadoPago("TEST-2bf9f710-6a6e-47c8-a207-79f5e73b464c");
+
+    function createSelectOptions(elem, options, labelsAndKeys = { label: "name", value: "id" }) {
+      const { label, value } = labelsAndKeys;
+
+      elem.options.length = 0;
+
+      const tempOptions = document.createDocumentFragment();
+
+      options.forEach(option => {
+        const optValue = option[value];
+        const optLabel = option[label];
+
+        const opt = document.createElement('option');
+        opt.value = optValue;
+        opt.textContent = optLabel;
+
+        tempOptions.appendChild(opt);
+      });
+
+      elem.appendChild(tempOptions);
+    }
+
+    (async function getIdentificationTypes() {
+      try {
+        const identificationTypes = await mp.getIdentificationTypes();
+        const docTypeElement = document.getElementById('docType');
+
+        createSelectOptions(docTypeElement, identificationTypes)
+      } catch (e) {
+        return console.error('Error getting identificationTypes: ', e);
+      }
+    })()
+
+    function handlePayment(event) {
+      event.preventDefault();
+
+      const formData = new FormData(event.target);
+
+      fetch("http://localhost:8080/process_other_methods_payment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          paymentMethodId: formData.get("paymentMethodId"),
+          transactionAmount: formData.get("transactionAmount"),
+          description: formData.get("productDescription"),
+          payer: {
+            firstName: formData.get("payerFirstName"),
+            lastName: formData.get("payerLastName"),
+            email: formData.get("payerEmail"),
+            identification: {
+              type: formData.get("docType"),
+              number: formData.get("docNumber")
+            }
+          }
+        })
+      })
+      .then(response => response.json())
+      .then(payment => {
+        const container = document.getElementById("information-container");
+        container.innerHTML = "";
+        if (payment.pointOfInteraction.transactionData) {
+          const qrCodeImage = document.createElement("img");
+          qrCodeImage.height = 250;
+          qrCodeImage.width = 250;
+          qrCodeImage.src = `data:image/jpeg;base64,${payment.pointOfInteraction.transactionData.qrCodeBase64}`;
+
+          const pixCode = document.createElement("p");
+          pixCode.innerText = payment.pointOfInteraction.transactionData.qrCode;
+
+          container.appendChild(qrCodeImage);
+          container.appendChild(pixCode);
+        } else {
+          const ticketLink = document.createElement("a");
+          ticketLink.href = payment.transactionDetails.externalResourceUrl;
+          ticketLink.innerText = "Clique aqui para ver o boleto";
+          ticketLink.target = "_blank";
+          container.appendChild(ticketLink);
+        }
+
+        alert(payment.status);
+      })
+    }
+  </script>
+</body>
+
+</html>

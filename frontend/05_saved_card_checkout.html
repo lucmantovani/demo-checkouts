@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Card checkout demo</title>
+	<script src="https://sdk.mercadopago.com/js/v2"></script>
+</head>
+
+<body style="display: flex; justify-content: center;">
+	<form id="form-checkout" onsubmit="handleSubmit(event)" style="display: flex; flex-direction: column; width: 50%;">
+		<input type="email" name="cardholderEmail" id="form-checkout__cardholderEmail" required />
+		<select id="cardId" name="cardId">
+			<option disabled>Insira seu email</option>
+		</select>
+		<input type="text" name="securityCode" id="form-checkout__securityCode" value="123" />
+		<select name="installments" id="form-checkout__installments"></select>
+		<button type="submit" id="form-checkout__submit">Pagar</button>
+	</form>
+	<script>
+		const mp = new MercadoPago("TEST-2bf9f710-6a6e-47c8-a207-79f5e73b464c");
+
+		let timeout;
+		let savedCards;
+		const amount = 100;
+		const installmentsInput = document.getElementById("form-checkout__installments");
+
+		const emailInput = document.getElementById("form-checkout__cardholderEmail");
+		emailInput.addEventListener("change", () => {
+			clearTimeout(timeout);
+			const email = emailInput.value;
+
+			timeout = setTimeout(() => {
+				if (email) {
+					fetch(`http://localhost:8080/customer_cards/${email}`)
+						.then(response => response.json())
+						.then(customerCards => {
+							savedCards = customerCards;
+							const selectElement = document.getElementById("cardId");
+							const tmpFragment = document.createDocumentFragment();
+							customerCards.forEach(({ id, lastFourDigits, paymentMethod }) => {
+								const optionElement = document.createElement("option");
+								optionElement.setAttribute("value", id)
+								optionElement.textContent = `${paymentMethod.name} ended in ${lastFourDigits}`
+								tmpFragment.appendChild(optionElement);
+							})
+							selectElement.appendChild(tmpFragment);
+
+							if (customerCards.length > 0) {
+								mp.getInstallments({
+									amount: String(amount),
+									bin: customerCards[0].firstSixDigits
+								})
+									.then(installments => {
+										installmentsInput.options.length = 0;
+										if (installments.length > 0) {
+											installments[0].payer_costs.forEach(payerCost => {
+												let opt = document.createElement("option");
+												opt.text = payerCost.recommended_message;
+												opt.value = payerCost.installments;
+												installmentsInput.appendChild(opt);
+											});
+										}
+									})
+									.catch(error => {
+										console.log(error);
+									});
+							}
+						});
+				}
+			}, 500);
+		});
+
+		function handleSubmit(event) {
+			event.preventDefault();
+			const formData = new FormData(event.target);
+
+			mp.createCardToken({
+				cardId: formData.get("cardId"),
+				securityCode: formData.get("securityCode")
+			})
+				.then(token => {
+					return fetch("http://localhost:8080/process_saved_card_payment", {
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json"
+						},
+						body: JSON.stringify({
+							token: token.id,
+							installments: installmentsInput.value,
+							paymentMethodId: savedCards[0].paymentMethod.id,
+							payer: {
+								id: savedCards[0].customerId
+							},
+							transactionAmount: amount
+						})
+					});
+				})
+				.then(response => response.json())
+				.then(payment => alert(payment.status));
+		}
+	</script>
+</body>
+
+</html>

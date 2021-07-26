@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Demo Checkout Pro</title>
+  <script src="https://sdk.mercadopago.com/js/v2"></script>
+</head>
+
+<body>
+  <div id="container">
+    <button id="continue">Continuar</button>
+  </div>
+
+  <script>
+    const mp = new MercadoPago("TEST-2bf9f710-6a6e-47c8-a207-79f5e73b464c", {
+      locale: "pt-BR"
+    });
+
+    const continueButton = document.getElementById("continue");
+    continueButton.addEventListener("click", (event) => {
+      fetch("http://localhost:8080/process_pro_checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        }
+      })
+      .then(response => response.json())
+      .then(preference => {
+        const container = document.getElementById("container");
+
+        const checkoutButton = document.createElement("a");
+        checkoutButton.classList.add("cho-container");
+        checkoutButton.href = preference.initPoint;
+        container.appendChild(checkoutButton);
+
+        mp.checkout({
+          preference: {
+            id: preference.id
+          },
+          render: {
+            container: ".cho-container",
+            label: "Pagar",
+          },
+          autoOpen: true
+        });
+      })
+      .catch(error => {
+        alert(error);
+      });
+    });
+  </script>
+</body>
+
+</html>
